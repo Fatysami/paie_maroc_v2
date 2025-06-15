@@ -1,75 +1,55 @@
-import bcrypt from 'bcryptjs';
-import prisma from '../lib/prisma.js';
-import { generateToken } from '../lib/jwt.js';
+import AuthService from '../services/AuthService.js';
+import jwt from 'jsonwebtoken';
+import { generateToken } from '../utils/generateToken.js';
 
-export const login = async (req, res) => {
-  const { email, password } = req.body;
+const AuthController = {
+  async signup(req, res) {
+    try {
+      const result = await AuthService.signup(req.body);
+      res.status(201).json({ success: true, ...result });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async login(req, res) {
+    try {
+      const { email, password } = req.body;
+      const result = await AuthService.login(email, password);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      res.status(401).json({ success: false, message: err.message });
+    }
+  },
+
+  async me(req, res) {
+    try {
+      const user = await AuthService.me(req.user.id);
+      res.json({ success: true, user });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  logout(req, res) {
+    res.json({ success: true, message: 'Déconnexion simulée' });
+  },
+
+  async refreshToken(req, res) {
   try {
-    const user = await prisma.users.findUnique({ where: { email } });
+    const { refreshToken } = req.body;
+    if (!refreshToken) throw new Error('Token de rafraîchissement requis');
 
-    if (!user || !user.is_active)
-      return res.status(401).json({ success: false, message: 'Identifiants invalides' });
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await AuthService.me(decoded.id);
+    const token = generateToken(user);
+    const newRefreshToken = generateRefreshToken(user);
 
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match)
-      return res.status(401).json({ success: false, message: 'Mot de passe incorrect' });
-
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      companyId: user.company_id
-    });
-
-    res.json({ success: true, token, user });
+    res.json({ success: true, token, refreshToken: newRefreshToken });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
   }
+}
 };
 
-export const signup = async (req, res) => {
-  const { email, password, firstName, lastName } = req.body;
-  try {
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.users.create({
-      data: {
-        email,
-        password_hash: passwordHash,
-        role: 'admin',
-        first_name: firstName,
-        last_name: lastName
-      }
-    });
-
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      companyId: user.company_id
-    });
-
-    res.status(201).json({ success: true, token, user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
-  }
-};
-
-export const me = (req, res) => {
-  res.json({ success: true, user: req.user });
-};
-
-export const logout = (_req, res) => {
-  // côté client : il suffit d’oublier le token
-  res.json({ success: true, message: 'Déconnecté' });
-};
-
-export const refresh = (req, res) => {
-  try {
-    const token = generateToken(req.user, '1h');
-    res.json({ success: true, token });
-  } catch (err) {
-    res.status(401).json({ success: false, message: 'Token invalide' });
-  }
-};
+export default AuthController;

@@ -1,18 +1,20 @@
-import { verifyToken } from '../lib/jwt.js';
+import jwt from 'jsonwebtoken';
 
-export const authMiddleware = (req, res, next) => {
+const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader?.startsWith('Bearer '))
-    return res.status(401).json({ success: false, message: 'Token manquant' });
+  if (!authHeader) {
+    return res.status(401).json({ success: false, message: 'Token requis' });
+  }
 
   const token = authHeader.split(' ')[1];
 
   try {
-    const user = verifyToken(token);
-    req.user = user;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ success: false, message: 'Token invalide' });
+    res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
   }
 };
+
+export default authMiddleware;

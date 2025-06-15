@@ -1,6 +1,6 @@
-export const adminOnly = (req, res, next) => {
+export default function adminOnly(req, res, next) {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Accès interdit (admin seulement)' });
+    return res.status(403).json({ success: false, message: "Accès réservé aux administrateurs." });
   }
   next();
-};
+}
