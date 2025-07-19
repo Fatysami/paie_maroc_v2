@@ -49,7 +49,28 @@ const AuthController = {
   } catch (err) {
     res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
   }
-}
+},
+
+async resetPassword(req, res) {
+    try {
+      const { email } = req.body;
+      const result = await AuthService.requestPasswordReset(email);
+      res.json({ success: true, message: 'Lien de réinitialisation simulé', token: result.token });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async updatePassword(req, res) {
+    try {
+      const { email, newPassword } = req.body;
+      const result = await AuthService.updatePassword(email, newPassword);
+      res.json({ success: true, message: result.message });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
 };
 
 export default AuthController;
